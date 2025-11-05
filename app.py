@@ -266,3 +266,4 @@ if uploaded_file:
         st.write(output_df.loc[random_index, 'Short_Report'])
         st.markdown("**Long Report:**")
         st.text_area("Long Report Details", output_df.loc[random_index, 'Long_Report'], height=300)
+
