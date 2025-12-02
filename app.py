@@ -9,7 +9,7 @@ import random
 
 st.set_page_config(page_title="Predictive Maintenance Reports", layout="wide")
 st.title("Predictive Maintenance: Short & Long Report Generator")
-
+st.caption("Azure Deploy Version: v3.1")
 # ------------------------------
 # Sidebar: Upload CSV
 # ------------------------------
@@ -190,4 +190,5 @@ if uploaded_file:
 
 else:
     st.info("👆 Please upload a predictive maintenance CSV file to begin.")
+
 
