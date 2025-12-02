@@ -1,4 +1,6 @@
+
 streamlit
+pillow
 pandas
 numpy
 scikit-learn
