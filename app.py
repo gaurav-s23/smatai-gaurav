@@ -29,7 +29,7 @@ if uploaded_file:
     # ------------------------------
     # Detect target column safely
     # ------------------------------
-    possible_targets = ["Machine failure", "machine failure", "Failure", "failure", "Target", "target"]
+    possible_targets = ["Machine failure", "machine failure", "Failure", "failure", "Target", "target","Anomaly","Anomaly"]
     target_col = None
 
     lower_map = {col.strip().lower(): col for col in data.columns}
@@ -190,5 +190,6 @@ if uploaded_file:
 
 else:
     st.info("👆 Please upload a predictive maintenance CSV file to begin.")
+
 
 
