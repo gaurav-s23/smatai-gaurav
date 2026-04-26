@@ -447,21 +447,39 @@ def plot_failure_heatmap_grid(output_df, feature_cols, n=2):
 
 
 # ─────────────────────────────────────────────
-# CSV EXPORT
+# CSV EXPORT — FIXED
 # ─────────────────────────────────────────────
 
 def build_output_df(data, X_full, col_map, model):
-    """Attach predictions + reports to original dataframe."""
+    """
+    Attach predictions + reports to original dataframe.
+
+    FIX 1: Pass DataFrame (not numpy array) to model.predict / predict_proba
+            to avoid 'X does not have valid feature names' warning.
+    FIX 2: Compute predictions row-by-row using DataFrame so RandomForest
+            does not spin up parallel threads (avoids RuntimeError on shutdown).
+    """
+    # Batch predictions for speed (these are fine as DataFrame)
     preds = model.predict(X_full)
     probs = model.predict_proba(X_full)[:, 1]
+
     out = data.copy()
     out["Predicted_Failure"] = preds
     out["Failure_Probability"] = probs.round(4)
-    out["Short_Report"] = X_full.apply(lambda r: generate_short_report(r, col_map), axis=1)
-    out["Long_Report"] = X_full.apply(
-        lambda r: generate_long_report(r, col_map,
-                                       prediction=model.predict(r.values.reshape(1, -1))[0],
-                                       probability=model.predict_proba(r.values.reshape(1, -1))[0][1]),
-        axis=1
+
+    # Short report — no model call needed, just sensor values
+    out["Short_Report"] = X_full.apply(
+        lambda r: generate_short_report(r, col_map), axis=1
     )
+
+    # Long report — use pre-computed batch preds/probs (no per-row model call)
+    # This avoids both the feature-name warning AND the thread crash
+    def make_long_report(idx):
+        r = X_full.iloc[idx]
+        pred = int(preds[idx])
+        prob = float(probs[idx])
+        return generate_long_report(r, col_map, prediction=pred, probability=prob)
+
+    out["Long_Report"] = [make_long_report(i) for i in range(len(X_full))]
+
     return out
