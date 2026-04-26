@@ -47,9 +47,9 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────
-# MLflow
+# MLflow — SQLite backend (FIXED)
 # ─────────────────────────────────────────────
-mlflow.set_tracking_uri("./mlruns")
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
 mlflow.set_experiment("SMAT-AI-v6")
 
 # ─────────────────────────────────────────────
@@ -241,7 +241,7 @@ with st.sidebar:
     st.markdown("""
     <div style="font-family:'JetBrains Mono',monospace; font-size:0.68rem; color:#6b7280; line-height:1.9;">
         Run in terminal:<br>
-        <span style="color:#f5a623;">mlflow ui --port 5000</span><br>
+        <span style="color:#f5a623;">mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000</span><br>
         Then open: <span style="color:#3b82f6;">localhost:5000</span>
     </div>
     """, unsafe_allow_html=True)
@@ -493,9 +493,16 @@ with tab3:
         if train_btn:
             X, y, col_map, label_encoders = preprocess_data(data, target_col)
             st.session_state.col_map = col_map
+            st.session_state.label_encoders = label_encoders
+
+            # ── FIX: Clean column names for XGBoost ──────────────────────
+            # XGBoost does not allow [ ] or < in feature names.
+            # This happens after one-hot encoding or dtype-based column names.
+            X.columns = X.columns.str.replace(r'[\[\]<>]', '_', regex=True)
+            # ─────────────────────────────────────────────────────────────
+
             st.session_state.feature_cols = list(X.columns)
             st.session_state.X_sample = X
-            st.session_state.label_encoders = label_encoders
             st.session_state.proc_X_full = X
 
             try:
