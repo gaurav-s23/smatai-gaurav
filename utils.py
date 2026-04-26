@@ -422,36 +422,58 @@ def plot_model_comparison_radar(results):
     ax.set_title("Model Comparison Radar", color=ACCENT, fontsize=10, pad=20)
     return fig
 
-
 def plot_sensor_boxplots(data, feature_cols, target_col, n=6):
-    """Box plots comparing sensor distributions by class."""
-    cols = [c for c in feature_cols if data[c].dtype in [np.float64, np.float32, np.int64, np.int32]][:n]
-    fig, axes = plt.subplots(1, len(cols), figsize=(14, 4))
+    """Box plots comparing sensor distributions by class with error handling."""
+    
+    # 1. Sirf wahi columns lo jo actually data mein exist karte hain (Fixes KeyError)
+    valid_cols = [c for c in feature_cols if c in data.columns]
+    
+    # 2. Filter only numeric columns for boxplotting
+    cols = [c for c in valid_cols if data[c].dtype in [np.float64, np.float32, np.int64, np.int32]][:n]
+    
+    if not cols:
+        return None  # Return empty if no numeric columns found
+
+    # 3. Dynamic grid calculation (sirf 1 row ki jagah grid format better lagta hai)
+    num_plots = len(cols)
+    fig, axes = plt.subplots(1, num_plots, figsize=(max(4 * num_plots, 12), 4))
     fig.patch.set_facecolor(CARD_BG)
-    if len(cols) == 1:
+    
+    # Handle single plot case (axes array nahi hota)
+    if num_plots == 1:
         axes = [axes]
 
     for ax, col in zip(axes, cols):
         ax.set_facecolor(CARD_BG)
-        groups = [data[data[target_col] == 0][col].dropna(),
-                  data[data[target_col] == 1][col].dropna()]
-        bp = ax.boxplot(groups, patch_artist=True, widths=0.5,
+        
+        # Data preparation with dropna for stability
+        h_data = data[data[target_col] == 0][col].dropna()
+        f_data = data[data[target_col] == 1][col].dropna()
+        
+        # Creating the boxplot
+        bp = ax.boxplot([h_data, f_data], patch_artist=True, widths=0.5,
                         medianprops=dict(color=ACCENT, lw=2),
                         whiskerprops=dict(color=TEXT_DIM),
                         capprops=dict(color=TEXT_DIM),
                         flierprops=dict(marker=".", color=TEXT_DIM, markersize=3))
-        bp["boxes"][0].set_facecolor(GREEN + "44")
-        bp["boxes"][0].set_edgecolor(GREEN)
-        if len(bp["boxes"]) > 1:
-            bp["boxes"][1].set_facecolor(RED + "44")
-            bp["boxes"][1].set_edgecolor(RED)
+        
+        # Styling: Green for Healthy, Red for Failure
+        colors = [GREEN + "44", RED + "44"]
+        edge_colors = [GREEN, RED]
+        
+        for patch, color, ec in zip(bp['boxes'], colors, edge_colors):
+            patch.set_facecolor(color)
+            patch.set_edgecolor(ec)
+            
         ax.set_xticklabels(["Healthy", "Failure"], color=TEXT_DIM, fontsize=8)
-        ax.set_title(col[:18], color=ACCENT, fontsize=8)
+        ax.set_title(col[:20], color=ACCENT, fontsize=9) # Title length safe rakha hai
+        
+        # Spines/Border styling
         for spine in ax.spines.values():
             spine.set_color(BORDER)
         ax.tick_params(colors=TEXT_DIM, labelsize=7)
 
-    plt.suptitle("Sensor Boxplots — Healthy vs Failure", color=TEXT_MAIN, fontsize=10, y=1.02)
+    plt.suptitle("Sensor Boxplots — Distribution Analysis", color=TEXT_MAIN, fontsize=11, y=1.05)
     plt.tight_layout()
     return fig
 
