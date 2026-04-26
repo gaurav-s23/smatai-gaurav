@@ -270,9 +270,28 @@ def plot_shap_summary(shap_values, X_test, feature_cols):
 
 
 def plot_shap_bar(shap_values, feature_cols, top_n=10):
-    mean_shap = np.abs(shap_values).mean(axis=0)
-    df = pd.DataFrame({"Feature": feature_cols, "Mean |SHAP|": mean_shap})
+    # SHAP values handle karna: Binary classification mein ye (n, f, 2) ho sakta hai
+    # Hamein sirf positive class (Failure) ke impact se matlab hai
+    if isinstance(shap_values, np.ndarray):
+        if len(shap_values.shape) == 3:  # (samples, features, classes)
+            sv_to_plot = shap_values[:, :, 1]
+        else:
+            sv_to_plot = shap_values
+    else:
+        # Agar Explainer object hai ya list hai
+        sv_to_plot = np.array(shap_values)
+        if len(sv_to_plot.shape) == 3:
+            sv_to_plot = sv_to_plot[:, :, 1]
+
+    mean_shap = np.abs(sv_to_plot).mean(axis=0)
+    
+    # Ensure 1D and match length
+    mean_shap = np.array(mean_shap).flatten()
+    current_features = feature_cols[:len(mean_shap)]
+    
+    df = pd.DataFrame({"Feature": current_features, "Mean |SHAP|": mean_shap})
     df = df.sort_values("Mean |SHAP|", ascending=True).tail(top_n)
+    
     fig, ax = _fig_setup((8, 4))
     ax.barh(df["Feature"], df["Mean |SHAP|"], color=PURPLE, edgecolor="none", height=0.6)
     ax.set_title(f"Top {top_n} Features — Global SHAP Importance", color=ACCENT, fontsize=10)
@@ -282,13 +301,36 @@ def plot_shap_bar(shap_values, feature_cols, top_n=10):
 
 
 def plot_shap_individual(shap_values, X_test, feature_cols, idx=0):
-    sample_shap = shap_values[idx]
+    # Same handling for individual sample
+    if isinstance(shap_values, np.ndarray):
+        if len(shap_values.shape) == 3:
+            sample_shap = shap_values[idx, :, 1]
+        else:
+            sample_shap = shap_values[idx]
+    else:
+        # Fallback for Explainer objects
+        try:
+            sample_shap = shap_values.values[idx]
+            # Agar output multi-class hai (.values will be 3D)
+            if len(sample_shap.shape) == 2:
+                sample_shap = sample_shap[:, 1]
+        except:
+            sample_shap = np.array(shap_values)[idx]
+            if len(sample_shap.shape) == 2:
+                sample_shap = sample_shap[:, 1]
+
+    sample_shap = np.array(sample_shap).flatten()
     sample_feats = X_test.iloc[idx]
+    
+    # Dataframe creation with slicing for safety
     df = pd.DataFrame({
-        "Feature": feature_cols, "Value": sample_feats.values, "SHAP": sample_shap
+        "Feature": feature_cols[:len(sample_shap)], 
+        "Value": sample_feats.values[:len(sample_shap)], 
+        "SHAP": sample_shap
     }).sort_values("SHAP", key=abs, ascending=False).head(10)
 
     fig, ax = _fig_setup((9, 4))
+    # Red for pushing towards Failure (>0), Green for pushing towards Healthy (<0)
     colors = [RED if v > 0 else GREEN for v in df["SHAP"]]
     ax.barh(df["Feature"], df["SHAP"], color=colors, edgecolor="none")
     ax.axvline(0, color="#374151", lw=1)
